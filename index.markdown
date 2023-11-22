@@ -4,3 +4,7 @@
 
 layout: home
 ---
+
+Welcome to my page.
+For now, there is not much here.
+Let's see where this goes.

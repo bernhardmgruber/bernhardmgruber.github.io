@@ -391,9 +391,12 @@ This way, this loop pumps 16 doubles per iteration.
 Using AVX512 (using `-mavx512f`), the compiler will emit the same code but using `zmm` registers,
 processing 32 doubles per iteration.
 
-Finally, I did a quick benchmark using Google benchmark on AMD Ryzen with AVX2.
-However, I took the Kokkos mdspan implementation available via vcpkg and libstdc++,
-since it was far easier to set up than convincing vcpkg to build Google benchmark with libc++.
+Finally, I did a quick benchmark using Google benchmark on my AMD Ryzen with AVX2.
+However, I took Kokkos' experimental mdspan implementation available via vcpkg together with libstdc++,
+instead of the mdspan implementation in libc++ available since clang 17,
+which I used on compiler explorer for the disassembly analysis.
+The former was far easier to set up than convincing vcpkg to build Google benchmark with libc++.
+It made a difference as we will see later.
 ```
 -----------------------------------------------------
 Benchmark           Time             CPU   Iterations
@@ -412,7 +415,9 @@ but key contributors are likely:
   The SoA loop runs pure compute, whereas the AoS has to do additional shuffling before it can crunch a single multiplication.
 * Full use of vector registers for SoA instead of scalar code for AoS (my case).
 
-As an aside, my local clang++ 17.0.4 even produced a scalar loop, processing 2 doubles per iteration, for the AoS:
+As an aside, for the AoS version,
+my local clang++ 17.0.4 using Kokkos' mdspan implementation even produced a scalar loop,
+processing 2 doubles per iteration:
 ```asm
    vmulsd -0x20(%r11),%xmm0,%xmm1
    vmovsd %xmm1,-0x20(%r11)
@@ -429,14 +434,12 @@ Additionally, I have used the following benchmark driver:
 ```c++
 // insert code discussed so far, or from compiler explorer
 
-namespace stdx = std::experimental;
-
 static void AoS(benchmark::State& state) {
-    auto extents = stdx::dextents<int, 2>{1024, 1024};
-    auto mapping = stdx::layout_right::mapping{extents};
-    auto accessor = stdx::default_accessor<RGBA>{};
+    auto extents = std::dextents<int, 2>{1024, 1024};
+    auto mapping = std::layout_right::mapping{extents};
+    auto accessor = std::default_accessor<RGBA>{};
     auto storage = std::vector<RGBA>(mapping.required_span_size());
-    auto image = stdx::mdspan{storage.data(), mapping, accessor};
+    auto image = std::mdspan{storage.data(), mapping, accessor};
 
     for (auto _ : state) {
         scaleRed(image);
@@ -446,11 +449,11 @@ static void AoS(benchmark::State& state) {
 BENCHMARK(AoS);
 
 static void SoA(benchmark::State& state) {
-    auto extents = stdx::dextents<int, 2>{1024, 1024};
-    auto mapping = stdx::layout_right::mapping{extents};
+    auto extents = std::dextents<int, 2>{1024, 1024};
+    auto mapping = std::layout_right::mapping{extents};
     auto accessor = AccessorSoA<RGBA, RGBARef>{mapping.required_span_size()};
     auto storage = std::vector<RGBA>(mapping.required_span_size());
-    auto image = stdx::mdspan{storage.data(), mapping, accessor};
+    auto image = std::mdspan{storage.data(), mapping, accessor};
 
     for (auto _ : state) {
         scaleRed(image);

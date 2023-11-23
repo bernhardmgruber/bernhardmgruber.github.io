@@ -11,7 +11,7 @@ or more accurately, [P0009](https://wg21.link/p0009), the C++ proposal for its a
 Given the customizable design of mdspan, which are mostly policies for layout and accessor,
 I have been wondering for a while:
 
-    Could mdspan implemented a SoA layout?
+    Could mdspan provide a SoA layout?
 
 Let's find out.
 
@@ -463,7 +463,7 @@ BENCHMARK(SoA);
 # Another case for reflection
 
 I want to end this article with a wish.
-We desparately need proper reflection in C++.
+We desperately need proper reflection in C++.
 Fortunately, [P2996](https://wg21.link/p2996r0) just dropped last month,
 just in time for the 2023 WG21 fall meeting in Kona.
 Even better: it was unanimously approved there by SG7, the study group for reflection,
@@ -488,3 +488,8 @@ And how could it be otherwise, the committee just keeps adding things!
 Well, reflection is one of those technologies that would just plainly eliminate a plethora of hacks we do these days,
 making code indeed simpler, vastly simpler.
 Let's hope it lands soon :)
+
+# Acknowledgements
+
+Many thanks to my friend Enrico for finding typos in this article.
+Make sure to checkout his blog at [codekobold.io](https://codekobold.io/).

@@ -304,6 +304,17 @@ All computations are done in bytes, so the storage array is reinterpreted as byt
 and the final address is interpreted back as a pointer to the correct type.
 This concludes our accessor implementation.
 
+This implementation of a SoA data layout is by far not ideal.
+It leaves a huge gap in the underlying storage where the padding was in the original `RGBA` struct:
+```c++
+r, r, r, ..., g, g, g, ..., b, b, b, ..., padding, padding, padding, ..., a, a, a, ...
+```
+It works though for the purpose of this article.
+An improvement to avoid the padding is left as an exercise to the reader.
+Hint: a space-efficient implementation is zero-overhead when `flatSize` is known at compile-time,
+and probably requires a `roundUpToMultiple(...)` otherwise,
+or the precomputation and storage of sub array offsets in the accesor instance.
+
 # Evaluation
 
 Let's construct an mdspan, but first with the `std::default_accessor`:

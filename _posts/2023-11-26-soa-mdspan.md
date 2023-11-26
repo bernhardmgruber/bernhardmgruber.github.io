@@ -120,7 +120,7 @@ auto& r = image.r[row][col];
 // no construct to refer to pixel at [row][col] 
 r = 4.0;
 ```
-Also noticed, the indexing syntax swapped now.
+Also notice, the indexing syntax swapped now.
 We first select the pixel's element and then specify the array indices.
 
 The data layout changed now, the elements are now laid out in memory as:

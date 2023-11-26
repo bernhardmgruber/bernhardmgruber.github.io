@@ -315,6 +315,14 @@ Hint: a space-efficient implementation is zero-overhead when `flatSize` is known
 and probably requires a `roundUpToMultiple(...)` otherwise,
 or the precomputation and storage of sub array offsets in the accesor instance.
 
+Furthermore, reinterpreting a `std::vector<T>` as storage for a SoA layout of `T` is also a huge hack,
+but it has the advantage of using the same code as for an AoS layout (using the `std::default_accessor<T>`),
+which reduces a switch between AoS and SoA to a single line of code.
+A more correct approach could either take a plain range of bytes as underlying storage,
+keeping the accessor's data handle a pointer,
+or using a `std::tuple<E*...>` as data handle, where `E...` are the types of the elements of `T`,
+at the cost of more complex setup code before constructing the mdspan.
+
 # Evaluation
 
 Let's construct an mdspan, but first with the `std::default_accessor`:

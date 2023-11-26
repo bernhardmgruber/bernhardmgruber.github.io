@@ -5,6 +5,10 @@
 layout: home
 ---
 
-Welcome to my page.
-For now, there is not much here.
-Let's see where this goes.
+Hey there!
+
+I am Bernhard and this is my personal page.
+I am a software engineer somewhere around HPC, GPU and graphics programming,
+currently based at CERN, Geneva, Switzerland.
+C++ is a big passion of mine, both professionally and privately,
+so I dedicate this webpage to some occasional ideas around the language!

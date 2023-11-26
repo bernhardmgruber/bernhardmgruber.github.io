@@ -1,8 +1,7 @@
 ---
 layout: post
 title:  "std::mdspan with struct of arrays (SoA) data layout"
-date:   2023-11-22
-hidden: true
+date:   2023-11-26
 ---
 
 I have been working on data layouts for a couple of years during my PhD.

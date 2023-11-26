@@ -161,7 +161,7 @@ struct RGBARef {
 Which we can create upon access using a little helper:
 
 ```c++
-auto access(Image&, row, col) {
+auto access(Image& image, int row, int col) {
     return RGBARef{
         image.r[row][col],
         image.g[row][col],

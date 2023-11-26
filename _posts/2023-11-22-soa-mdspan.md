@@ -252,11 +252,11 @@ And this one is an equivalent of the [`offsetof`](https://en.cppreference.com/w/
 but for type lists and using an index to select the member.
 Example usage:
 ```c++
-    using L = mp_list<float, float, float, double>; // RGBA struct as type list
-    offsetOf<L, 0> ==  0;
-    offsetOf<L, 1> ==  4;
-    offsetOf<L, 2> ==  8;
-    offsetOf<L, 3> == 16; // respects padding
+using L = mp_list<float, float, float, double>; // RGBA struct as type list
+offsetOf<L, 0> ==  0;
+offsetOf<L, 1> ==  4;
+offsetOf<L, 2> ==  8;
+offsetOf<L, 3> == 16; // respects padding
 ```
 
 To convert a struct into such a list, we can use [Boost.PFR](https://www.boost.org/doc/libs/master/doc/html/boost_pfr.html).
@@ -402,7 +402,7 @@ This way, this loop pumps 16 doubles per iteration.
 Using AVX512 (using `-mavx512f`), the compiler will emit the same code but using `zmm` registers,
 processing 32 doubles per iteration.
 
-Finally, I did a quick benchmark using Google benchmark on my AMD Ryzen with AVX2.
+Finally, I did a quick benchmark using Google benchmark on my AMD Ryzen 9 5950X with AVX2.
 However, I took Kokkos' experimental mdspan implementation available via vcpkg together with libstdc++,
 instead of the mdspan implementation in libc++ available since clang 17,
 which I used on compiler explorer for the disassembly analysis.

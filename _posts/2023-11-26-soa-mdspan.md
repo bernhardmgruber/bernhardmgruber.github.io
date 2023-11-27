@@ -344,7 +344,7 @@ void scaleRed(auto& image) {
     for (int row = 0; row < image.extent(1); row++)
         for (int col = 0; col < image.extent(0); col++) {
             auto&& pixel = image[row, col];
-            pixel.r *= 1.5; // vector muls
+            pixel.r *= 1.5f; // vector muls
         }
 }
 
@@ -356,29 +356,28 @@ We compile using clang-17 and `-stdlib=libc++ -std=c++23 -O3 -mavx2`.
 Inside the disassembly of `scaleRed(...)`, we can find the heart of the loop:
 ```asm
 .LBB1_11:                               #   Parent Loop BB1_2 Depth=1
-        vmovsd  xmm2, qword ptr [r12 - 32]      # xmm2 = mem[0],zero
-        vmovhpd xmm2, xmm2, qword ptr [r12]     # xmm2 = xmm2[0],mem[0]
-        vmovsd  xmm3, qword ptr [r12 - 96]      # xmm3 = mem[0],zero
-        vmovhpd xmm3, xmm3, qword ptr [r12 - 64] # xmm3 = xmm3[0],mem[0]
-        vinsertf128     ymm2, ymm3, xmm2, 1
-        vmulpd  ymm2, ymm2, ymm1
-        vmovlpd qword ptr [r12 - 96], xmm2
-        vmovhpd qword ptr [r12 - 64], xmm2
-        vextractf128    xmm2, ymm2, 1
-        vmovlpd qword ptr [r12 - 32], xmm2
-        vmovhpd qword ptr [r12], xmm2
-        sub     r12, -128
-        add     r13, -4
+        vmovss  xmm2, dword ptr [r15]           # xmm2 = mem[0],zero,zero,zero
+        vinsertps       xmm2, xmm2, dword ptr [r15 + 24], 16 # xmm2 = xmm2[0],mem[0],xmm2[2,3]
+        vinsertps       xmm2, xmm2, dword ptr [r15 + 48], 32 # xmm2 = xmm2[0,1],mem[0],xmm2[3]
+        vinsertps       xmm2, xmm2, dword ptr [r15 + 72], 48 # xmm2 = xmm2[0,1,2],mem[0]
+        vmulps  xmm2, xmm2, xmm1
+        vmovss  dword ptr [r15], xmm2
+        vextractps      dword ptr [r15 + 24], xmm2, 1
+        vextractps      dword ptr [r15 + 48], xmm2, 2
+        vextractps      dword ptr [r15 + 72], xmm2, 3
+        add     r15, 96
+        add     r12, -4
         jne     .LBB1_11
 ```
-The compiler is already doing something very clever here.
-It gathers the red elements from eight pixels, using a combination of instructions,
-and puts them together into a single vector register (`ymm2`).
-Then, it performs the multiplication to scale by `1.5` using `vmulpd`.
+The compiler is trying to do something clever here.
+It gathers the red elements from four pixels, using a combination of move and insert instructions,
+and puts them together into a single vector register (`xmm2`).
+Notice, that even though we specified AVX2, the compiler only used an SSE (`xmm`) register.
+Then, it performs the multiplication to scale by `1.5` using `vmulps`.
 And then it scatters all the values back into memory.
 At the end, it decrements `r13` by four, which is the loop counter,
 restarting the loop if it has not hit zero yet.
-The disassembly looks similar when compiling for AVX512 (using `-mavx512f`).
+The compiler performs a similar gathering/scattering of values when using AVX512 (using `-mavx512f`).
  
 Now, let's change to our SoA accessor, reusing the exact same code otherwise:
 ```c++
@@ -387,27 +386,27 @@ auto accessor = AccessorSoA<RGBA, RGBARef>{mapping.required_span_size()};
 Now, the disassembly of `scaleRed(...)` looks differently:
 ```asm
 .LBB1_10:                               #   Parent Loop BB1_2 Depth=1
-        vmulpd  ymm2, ymm1, ymmword ptr [r14 + 8*r15 - 96]
-        vmulpd  ymm3, ymm1, ymmword ptr [r14 + 8*r15 - 64]
-        vmulpd  ymm4, ymm1, ymmword ptr [r14 + 8*r15 - 32]
-        vmulpd  ymm5, ymm1, ymmword ptr [r14 + 8*r15]
-        vmovupd ymmword ptr [r14 + 8*r15 - 96], ymm2
-        vmovupd ymmword ptr [r14 + 8*r15 - 64], ymm3
-        vmovupd ymmword ptr [r14 + 8*r15 - 32], ymm4
-        vmovupd ymmword ptr [r14 + 8*r15], ymm5
-        add     r15, 16
+        vmulps  ymm2, ymm1, ymmword ptr [r14 + 4*r15 - 96]
+        vmulps  ymm3, ymm1, ymmword ptr [r14 + 4*r15 - 64]
+        vmulps  ymm4, ymm1, ymmword ptr [r14 + 4*r15 - 32]
+        vmulps  ymm5, ymm1, ymmword ptr [r14 + 4*r15]
+        vmovups ymmword ptr [r14 + 4*r15 - 96], ymm2
+        vmovups ymmword ptr [r14 + 4*r15 - 64], ymm3
+        vmovups ymmword ptr [r14 + 4*r15 - 32], ymm4
+        vmovups ymmword ptr [r14 + 4*r15], ymm5
+        add     r15, 32
         cmp     rbx, r15
         jne     .LBB1_10
 ```
 And that looks like perfect vectorization.
 Notice that no complicated gathering of red channel values is necessary.
-The compiler, with each call to `vmulpd`, just loads 4 values and multiplies straight away.
+The compiler, with each call to `vmulps`, just loads 8 values and multiplies straight away.
 The results are stored back to memory afterward,
-with each `vmovupd` storing 4 values at the same time.
+with each `vmovups` storing 8 values at the same time.
 Notice also the four-fold duplication of SIMD instructions to allow for instruction-level parallelism.
-This way, this loop pumps 16 doubles per iteration.
+This way, this loop pumps 32 floats per iteration.
 Using AVX512 (using `-mavx512f`), the compiler will emit the same code but using `zmm` registers,
-processing 32 doubles per iteration.
+processing 64 floats per iteration.
 
 Finally, I did a quick benchmark using Google benchmark on my AMD Ryzen 9 5950X with AVX2.
 However, I took Kokkos' experimental mdspan implementation available via vcpkg together with libstdc++,
@@ -419,8 +418,8 @@ It made a difference as we will see later.
 -----------------------------------------------------
 Benchmark           Time             CPU   Iterations
 -----------------------------------------------------
-AoS            803705 ns       803697 ns          781
-SoA            110466 ns       110465 ns         6315
+AoS            366056 ns       366051 ns         1827
+SoA             44809 ns        44809 ns        15690
 ```
 You can see that the SoA layout is about 8 times faster than AoS here.
 I avoid a detailed analysis here for the sake of brevity,
@@ -435,19 +434,19 @@ but key contributors are likely:
 
 As an aside, for the AoS version,
 my local clang++ 17.0.4 using Kokkos' mdspan implementation even produced a scalar loop,
-processing 2 doubles per iteration:
+processing 2 floats per iteration:
 ```asm
-   vmulsd -0x20(%r11),%xmm0,%xmm1
-   vmovsd %xmm1,-0x20(%r11)
-   vmulsd (%r11),%xmm0,%xmm1
-   vmovsd %xmm1,(%r11)
-   add    $0x2,%r10
-   add    $0x40,%r11
-   cmp    %r10,%rsi
-   jne    5ab10 <AoS(benchmark::State&)+0x110>
+        vmulss xmm1,xmm0,DWORD PTR [r11]
+        vmovss DWORD PTR [r11],xmm1
+        vmulss xmm1,xmm0,DWORD PTR [r11+0x18]
+        vmovss DWORD PTR [r11+0x18],xmm1
+        add    r10,0x2
+        add    r11,0x30
+        cmp    rsi,r10
+        jne    5ab40 <AoS(benchmark::State&)+0x140>
 ```
 
-You can find the full code presented in this article on [compiler explorer](https://godbolt.org/z/vqvjo8jMG).
+You can find the full code presented in this article on [compiler explorer](https://godbolt.org/z/EYeYoo4K5).
 Additionally, I have used the following benchmark driver:
 ```c++
 // insert code discussed so far, or from compiler explorer

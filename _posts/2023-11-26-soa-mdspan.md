@@ -378,6 +378,7 @@ And then it scatters all the values back into memory.
 At the end, it decrements `r13` by four, which is the loop counter,
 restarting the loop if it has not hit zero yet.
 The compiler performs a similar gathering/scattering of values when using AVX512 (using `-mavx512f`).
+We will see a different version for the AoS later.
  
 Now, let's change to our SoA accessor, reusing the exact same code otherwise:
 ```c++
